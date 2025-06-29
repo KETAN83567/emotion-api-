@@ -1,4 +1,4 @@
-# train.py
+# train.py (Corrected and Final)
 import pandas as pd
 import numpy as np
 import os
@@ -18,22 +18,22 @@ def get_emotion_label_v5(data):
     music_positivity = (data['avg_valence']*0.7 + data['avg_energy']*0.3) - (min(data['songsSkipped']/25, 1)*0.3)
     social_penalty = (data['socialTime'] / 300) ** 1.5
     composite_score = (sleep_factor*0.35 + activity_factor*0.25 + hr_factor*0.15 + music_positivity*0.15 - social_penalty*0.4)
+    
+    # CORRECTED: Multi-line if/elif/else block with proper indentation
     if composite_score > 0.6:
-    return "Euphoric"
-elif composite_score > 0.4:
-    return "Happy"
-elif composite_score > 0.2:
-    return "Content"
-elif composite_score > 0.0:
-    return "Neutral"
-elif composite_score > -0.2:
-    return "Restless"
-elif composite_score > -0.4:
-    return "Anxious"
-else:
-    return "Stressed"
-    elif composite_score > 0.0: return "Neutral"; elif composite_score > -0.2: return "Restless"; elif composite_score > -0.4: return "Anxious"
-    else: return "Stressed"
+        return "Euphoric"
+    elif composite_score > 0.4:
+        return "Happy"
+    elif composite_score > 0.2:
+        return "Content"
+    elif composite_score > 0.0:
+        return "Neutral"
+    elif composite_score > -0.2:
+        return "Restless"
+    elif composite_score > -0.4:
+        return "Anxious"
+    else:
+        return "Stressed"
 
 # --- 2. Generate a Realistic, Correlated Dataset ---
 def generate_enhanced_synthetic_data(num_samples=15000):

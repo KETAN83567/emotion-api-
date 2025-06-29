@@ -1,4 +1,4 @@
-# main.py (Corrected)
+# main.py (Final Version with GET endpoint)
 import joblib
 import pandas as pd
 from fastapi import FastAPI, HTTPException
@@ -8,8 +8,10 @@ from typing import List, Optional, Dict
 import random
 from datetime import datetime
 
-app = FastAPI(title="Enhanced Emotional Wellbeing API", version="5.0")
+# --- 1. Initialize FastAPI App ---
+app = FastAPI(title="Enhanced Emotional Wellbeing API", version="5.1") # Version bump!
 
+# --- 2. Pydantic Models (API "Contract") ---
 class PredictionInput(BaseModel):
     sleepHours: float=Field(...,ge=0,le=24); stepsCount: int=Field(...,ge=0); caloriesBurnt: int=Field(...,ge=0); heartRate: int=Field(...,ge=30,le=200); songsSkipped: int=Field(...,ge=0)
     avg_valence: float=Field(...,ge=0,le=1); avg_energy: float=Field(...,ge=0,le=1); avg_danceability: float=Field(...,ge=0,le=1); socialTime: int=Field(...)
@@ -19,11 +21,14 @@ class DetailedPrediction(BaseModel):
     predicted_emotion: str; confidence_score: float; wellbeing_score: int; wellbeing_breakdown: Dict[str,float]
     recommendations: List[SmartRecommendation]; risk_factors: List[str]; positive_factors: List[str]; next_check_in: str
 
+# --- 3. Load Trained Model Artifacts ---
 try:
     model=joblib.load('models/emotion_model_v5.joblib'); scaler=joblib.load('models/scaler_v5.joblib')
     label_encoder=joblib.load('models/label_encoder_v5.joblib'); model_features=joblib.load('models/features_v5.joblib')
-except FileNotFoundError: raise RuntimeError("Model artifacts not found. Please run train.py first to generate the 'models' folder.")
+except FileNotFoundError: raise RuntimeError("Model artifacts not found. Please run train.py first.")
 
+# --- 4. Logic Engines (Scoring & Recommendations) ---
+# (Your brilliant SmartRecommendationEngine and EnhancedWellbeingScorer classes go here, unchanged)
 class SmartRecommendationEngine:
     def __init__(self): self.templates={'sleep':['...reducing screen time 1 hour before bed...'],'activity':['...a 10-minute walk to boost mood.'],'social':['...using app timers to limit consumption.'],'music':["...a 'focus' playlist."],'hr':["...4-7-8 breathing."],'relief':"Try the 5-4-3-2-1 grounding technique."}
     def generate(self,d:PredictionInput,e:str)->List:
@@ -38,32 +43,61 @@ class SmartRecommendationEngine:
         recs.sort(key=lambda x:x.priority); return recs[:3]
 class EnhancedWellbeingScorer:
     def calculate(self,d:PredictionInput)->tuple:
-        s_score=max(0,100-(abs(d.sleepHours-7.5)/7.5)*60)
-        a_score=(min(100,(d.stepsCount/10000)*100)+min(100,(d.caloriesBurnt/800)*100))/2
-        hr_score=100 if 60<=d.heartRate<=75 else max(0,100-(min(abs(d.heartRate-60),abs(d.heartRate-75))/30)*100)
-        m_score=max(0,(d.avg_valence*100)-min((d.songsSkipped/30)*50,50))
-        so_score=100 if d.socialTime<=60 else max(0,100-((d.socialTime-60)/300)*100)
-        w={'s':0.3,'a':0.25,'hr':0.15,'m':0.15,'so':0.15}
+        s_score=max(0,100-(abs(d.sleepHours-7.5)/7.5)*60); a_score=(min(100,(d.stepsCount/10000)*100)+min(100,(d.caloriesBurnt/800)*100))/2; hr_score=100 if 60<=d.heartRate<=75 else max(0,100-(min(abs(d.heartRate-60),abs(d.heartRate-75))/30)*100); m_score=max(0,(d.avg_valence*100)-min((d.songsSkipped/30)*50,50)); so_score=100 if d.socialTime<=60 else max(0,100-((d.socialTime-60)/300)*100); w={'s':0.3,'a':0.25,'hr':0.15,'m':0.15,'so':0.15}
         comp_score=(s_score*w['s']+a_score*w['a']+hr_score*w['hr']+m_score*w['m']+so_score*w['so'])
         breakdown={'sleep':round(s_score,1),'activity':round(a_score,1),'phys_health':round(hr_score,1),'music_mood':round(m_score,1),'digital_wellness':round(so_score,1)}
         return int(comp_score),breakdown
 def identify_factors(d:PredictionInput)->tuple:
-    r,p=[],[]
-    if d.sleepHours<6: r.append("Insufficient sleep")
-    if 7<=d.sleepHours<=8.5: p.append("Optimal sleep")
-    if d.stepsCount<3000: r.append("Very low activity")
-    if d.stepsCount>=8000: p.append("Excellent activity")
-    if d.socialTime>240: r.append("Excessive social media")
-    if d.socialTime<=120: p.append("Balanced social media")
-    if d.heartRate>85: r.append("Elevated heart rate")
-    if 60<=d.heartRate<=75: p.append("Healthy heart rate")
+    r,p=[],[];
+    if d.sleepHours<6:r.append("Insufficient sleep");
+    if 7<=d.sleepHours<=8.5:p.append("Optimal sleep")
+    if d.stepsCount<3000:r.append("Very low activity");
+    if d.stepsCount>=8000:p.append("Excellent activity")
+    if d.socialTime>240:r.append("Excessive social media");
+    if d.socialTime<=120:p.append("Balanced social media")
+    if d.heartRate>85:r.append("Elevated heart rate");
+    if 60<=d.heartRate<=75:p.append("Healthy heart rate")
     return r,p
 def determine_next_checkin(e:str,r:List[str])->str:
-    if e in['Stressed','Anxious']or len(r)>=3: return "In 4-6 hours"
-    elif e in['Restless','Neutral']or len(r)>=1: return "Tomorrow"
-    else: return "In 2-3 days"
-
+    if e in['Stressed','Anxious']or len(r)>=3:return"In 4-6 hours"
+    elif e in['Restless','Neutral']or len(r)>=1:return"Tomorrow"
+    else:return"In 2-3 days"
 rec_engine=SmartRecommendationEngine(); scorer=EnhancedWellbeingScorer()
+
+# --- 5. API Endpoints ---
+@app.get("/", include_in_schema=False)
+def root(): return {"message": "Wellbeing API is running. Go to /docs for documentation."}
+
+# ==============================================================================
+# NEW GET ENDPOINT FOR TESTING
+# ==============================================================================
+@app.get("/predict_test", response_model=DetailedPrediction)
+def predict_test(
+    sleepHours: float = 7.5,
+    stepsCount: int = 8000,
+    socialTime: int = 90
+):
+    """
+    Runs a test prediction using default values.
+    You can override defaults in the URL, e.g., /predict_test?sleepHours=5&stepsCount=2000
+    """
+    # Create a sample input object using a mix of defaults and provided parameters
+    sample_input = PredictionInput(
+        sleepHours=sleepHours,
+        stepsCount=stepsCount,
+        socialTime=socialTime,
+        # Fill in other required fields with sensible defaults
+        caloriesBurnt=500,
+        heartRate=70,
+        songsSkipped=5,
+        avg_valence=0.7,
+        avg_energy=0.6,
+        avg_danceability=0.8
+    )
+    
+    # Run the full prediction pipeline using this sample data
+    return predict_enhanced(sample_input)
+# ==============================================================================
 
 @app.post("/predict_enhanced", response_model=DetailedPrediction)
 def predict_enhanced(input_data: PredictionInput):
@@ -78,6 +112,3 @@ def predict_enhanced(input_data: PredictionInput):
                                 wellbeing_breakdown=breakdown,recommendations=recs,risk_factors=risks,
                                 positive_factors=positives,next_check_in=next_checkin)
     except Exception as e: raise HTTPException(status_code=500,detail=f"Prediction failed: {e}")
-
-@app.get("/", include_in_schema=False)
-def root(): return {"message": "Wellbeing API is running. Go to /docs for documentation."}

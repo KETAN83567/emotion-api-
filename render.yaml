@@ -1,1 +1,42 @@
+# ==============================================================================
+# Render Deployment Configuration for the Emotional Wellbeing API
+# ==============================================================================
+# This file tells Render exactly how to build and run the FastAPI service.
+# It should be placed in the root directory of your GitHub repository.
 
+services:
+  # This defines our main web service.
+  - type: web
+    # A unique name for the service.
+    name: emotion-api-service
+    
+    # The runtime environment for the service.
+    # We specify 'python' and can optionally pin a version.
+    env: python
+    pythonVersion: "3.11"
+    
+    # The branch from your GitHub repository to deploy.
+    # 'main' is the standard default.
+    branch: main
+    
+    # The list of commands to run to build the project.
+    # This runs every time you push a new commit.
+    buildCommand: |
+      pip install --upgrade pip
+      pip install -r requirements.txt
+    
+    # The command to run to start the application server.
+    # We use gunicorn for production, a robust and standard server.
+    # -w 4: Starts 4 worker processes to handle more requests simultaneously.
+    # -k uvicorn.workers.UvicornWorker: Tells gunicorn to use uvicorn's high-speed workers.
+    # main:app: Tells the server to look in the `main.py` file for the object named `app`.
+    startCommand: "gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app"
+    
+    # Optional: Health Check Configuration
+    # Render will ping this path to make sure your service is online.
+    # Our root endpoint in main.py is perfect for this.
+    healthCheckPath: /
+
+    # Optional: Plan Configuration
+    # 'free' is the default, but you can specify it here.
+    plan: free
